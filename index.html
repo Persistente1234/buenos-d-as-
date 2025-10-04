@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Escena Diurna Animada</title>
+<style>
+html, body { margin:0; padding:0; height:100%; overflow:hidden; background: linear-gradient(to bottom, #87CEEB, #B0E0E6); font-family:'Georgia', serif; color:#333;}
+.scene{position:relative;width:100%;height:100%;overflow:hidden;}
+canvas{position:absolute;width:100%;height:100%; top:0; left:0; z-index:0;}
+.sun{position:absolute;top:10%;left:70%;width:120px;height:120px; border-radius:50%;background:radial-gradient(circle,#FFD700,#FFA500 70%,#FF8C00 100%); box-shadow:0 0 60px #FFD700; z-index:1;}
+.ground{position:absolute;bottom:0;width:100%;height:150px; background:linear-gradient(to top,#228B22,transparent); z-index:2;}
+.person{position:absolute;bottom:150px;left:30%;width:120px;height:180px; background:url('https://i.ibb.co/z6v8pzF/person-silhouette.png') no-repeat center/contain; z-index:3;}
+.cat{position:absolute;bottom:150px;left:40%;width:80px;height:100px; background:url('https://i.ibb.co/5BnrZk0/cat-silhouette.png') no-repeat center/contain; z-index:3;}
+.poem-container{position:absolute;top:20%;width:100%;text-align:center;font-size:clamp(1.5rem,4vw,3rem);z-index:4;}
+.message-text{opacity:0;transition:opacity 1s ease-in-out;text-shadow:0 0 8px #fff,0 0 15px #ffeb99;}
+.message-text.fade-in{opacity:1;}
+.message-text.fade-out{opacity:0;}
+.final-message{font-size:clamp(2rem,5vw,4rem); text-shadow:0 0 15px #ff7bd5,0 0 30px #ff2f95; animation: heartbeat 1s infinite alternate;}
+@keyframes heartbeat {0% { transform: scale(1); } 50% { transform: scale(1.15); } 100% { transform: scale(1); }}
+.hud{position:fixed;top:12px;left:12px;z-index:5;background:rgba(255,255,255,0.3); padding:8px 10px;border-radius:12px;backdrop-filter:blur(6px);display:flex;align-items:center;gap:5px;}
+#musicControl{cursor:pointer;background:rgba(255,255,255,0.4);border:none;color:#333; padding:5px 10px;border-radius:8px;font-weight:bold;}
+</style>
+</head>
+<body>
+<div class="scene">
+<canvas id="sky"></canvas>
+<div class="sun"></div>
+<div class="ground"></div>
+<div class="poem-container"><div class="message-text" id="messageText"></div></div>
+<div class="hud">
+<label for="birdFreq">Pájaros:</label>
+<input id="birdFreq" type="range" min="0" max="1" step="0.01" value="0.25">
+<button id="musicControl">Play 🎵</button>
+</div>
+<audio id="bgMusic" loop>
+<source src="Fmartes.mp3" type="audio/mpeg">
+</audio>
+</div>
+
+<script>
+const canvas=document.getElementById('sky');
+const ctx=canvas.getContext('2d');
+let W=innerWidth,H=innerHeight;
+canvas.width=W;canvas.height=H;
+window.addEventListener('resize',()=>{ W=innerWidth;H=innerHeight;canvas.width=W;canvas.height=H; });
+
+// nubes difuminadas
+const clouds=[];
+for(let i=0;i<8;i++){
+  clouds.push({
+    x: Math.random()*W,
+    y: Math.random()*H*0.3,
+    radius: Math.random()*150+200,
+    spd: Math.random()*0.5+0.1
+  });
+}
+
+// pájaros
+const birds=[];
+const birdFreqSlider=document.getElementById('birdFreq');
+let birdProb=parseFloat(birdFreqSlider.value);
+birdFreqSlider.addEventListener('input',()=>birdProb=parseFloat(birdFreqSlider.value));
+function spawnBird(){const y=Math.random()*H*0.4+50;const size=Math.random()*25+20;birds.push({x:-50,y,size,spd:Math.random()*3+2});}
+
+// rayos de sol
+const sunRays=[];
+for(let i=0;i<50;i++){sunRays.push({angle:Math.random()*Math.PI*2,length: Math.random()*50+50, speed: Math.random()*0.02+0.01, offset: Math.random()*Math.PI*2});}
+
+canvas.addEventListener('click',spawnBird);
+canvas.addEventListener('touchstart',e=>spawnBird());
+
+function drawScene(){
+ctx.clearRect(0,0,W,H);
+
+// cielo
+const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#87CEEB');g.addColorStop(0.7,'#B0E0E6');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+
+// rayos sol
+const sunX=W*0.7+60,sunY=H*0.1+60;
+for(let r of sunRays){r.offset+=r.speed;const x=sunX+Math.cos(r.offset)*r.length;const y=sunY+Math.sin(r.offset)*r.length;ctx.strokeStyle="rgba(255,255,150,0.5)";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(sunX,sunY);ctx.lineTo(x,y);ctx.stroke();}
+
+// nubes difuminadas
+for(let c of clouds){
+  c.x+=c.spd;
+  if(c.x>W+200) c.x=-c.radius*2;
+  const grad = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.radius);
+  grad.addColorStop(0,'rgba(255,255,255,0.8)');
+  grad.addColorStop(0.7,'rgba(255,255,255,0.3)');
+  grad.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=grad;
+  ctx.beginPath();
+  ctx.arc(c.x,c.y,c.radius,0,Math.PI*2);
+  ctx.fill();
+}
+
+// pájaros visibles
+for(let i=birds.length-1;i>=0;i--){
+  let b=birds[i];
+  b.x+=b.spd;
+  ctx.fillStyle="#333";
+  ctx.beginPath();
+  ctx.moveTo(b.x,b.y);
+  ctx.lineTo(b.x+b.size*0.5,b.y-b.size*0.3);
+  ctx.lineTo(b.x+b.size,b.y);
+  ctx.closePath();
+  ctx.fill();
+  if(b.x>W+50) birds.splice(i,1);
+}
+if(Math.random()<birdProb*0.01)spawnBird();
+
+requestAnimationFrame(drawScene);
+}
+drawScene();
+
+// poema
+const poemLines=["En cada sonrisa...","el sol brilla más.","Eres mi alegría...","mi rayo de luz.","Por eso y mucho más...","Te quiero y Buenos Dias."];
+const messageElement=document.getElementById('messageText');
+let currentLineIndex=0;
+const displayTime=3000,fadeTime=1000;
+function showNextLine(){messageElement.classList.remove('fade-in');messageElement.classList.add('fade-out');setTimeout(()=>{if(currentLineIndex<poemLines.length){messageElement.textContent=poemLines[currentLineIndex];currentLineIndex++;messageElement.classList.remove('fade-out');messageElement.classList.add('fade-in');}else{messageElement.textContent="Siempre contigo Un detalle de Vic_persi 💖";messageElement.classList.remove('fade-out');messageElement.classList.add('fade-in');messageElement.classList.add('final-message');}},fadeTime);}
+setTimeout(()=>{messageElement.textContent=poemLines[currentLineIndex];currentLineIndex++;messageElement.classList.add('fade-in');},1000);
+setInterval(showNextLine,displayTime+fadeTime);
+
+// música
+const bgMusic=document.getElementById('bgMusic');
+const musicControl=document.getElementById('musicControl');
+musicControl.addEventListener('click',()=>{if(bgMusic.paused){bgMusic.play();musicControl.textContent="Pause ⏸️";}else{bgMusic.pause();musicControl.textContent="Play 🎵";}});
+</script>
+</body>
+</html>
